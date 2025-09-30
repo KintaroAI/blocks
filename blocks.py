@@ -202,7 +202,7 @@ def main():
         p0 = a.anchor_point(start_edge)
         d0 = a.edge_dir(start_edge)
         p3 = b.anchor_point(end_edge)
-        d3 = b.edge_dir(end_edge)
+        d3 = -b.edge_dir(end_edge)
 
         # Compute control points
         c1, c2 = nice_controls(p0, d0, p3, d3)
