@@ -292,8 +292,8 @@ def main():
         for t in range(connections_per_area):
             connections.append(Connection((b, "left", - 0.5 + (area + t/26)), (a, "left", -0.5+random.random()), color=color, width=3, sparks=3, spark_speed=0.7 + random.random()/4))
             if color == MOTOR_AREA_COLOR1:
-                for _ in range(2):
-                    connections.append(Connection((b, "left", - 0.5 + (area + t/26)), (movement, "bottom", -0.5+random.random()), color=MOTOR_AREA_COLOR2, width=3, sparks=3, spark_speed=0.7 + random.random()/4))
+                connections.append(Connection((b, "left", - 0.5 + (area + t/26)), (movement, "bottom", -0.33), color=MOTOR_AREA_COLOR2, width=3, sparks=3, spark_speed=0.7 + random.random()/4))
+                connections.append(Connection((b, "left", - 0.5 + (area + t/26)), (movement, "bottom", 0.33), color=MOTOR_AREA_COLOR2, width=3, sparks=3, spark_speed=0.7 + random.random()/4))
 
 
 
