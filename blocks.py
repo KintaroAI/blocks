@@ -264,14 +264,14 @@ def main():
     font = pygame.font.SysFont("arial", 18)
 
     # Blocks
-    a = Block(460, 50, 100, 400, "Thalamus")
-    b = Block(460, 460, 100, 400, "Cortex")
+    a = Block(460, 50, 400, 200, "Thalamus")
+    b = Block(460, 460, 400, 200, "Cortex")
     ear = Block(10, 50, 100, 100, "Ear")
     skin = Block(10, 200, 100, 100, "Skin")
     eye = Block(10, 350, 100, 100, "Eye")
     movement = Block(10, 500, 100, 100, "Movement")
-    note_sorted = Block(570, 400, 230, 100, "Topographically sorted", 100)
-    note_brain = Block(10, 790, 230, 100, "Simplified human brain", 100)
+    note_sorted = Block(560, 300, 200, 100, "Topographically sorted", 100)
+    note_brain = Block(10, 790, 200, 100, "Simplified human brain", 100)
     blocks = [a, b, ear, eye, skin, movement]
     notes = [note_sorted, note_brain]
     # Connections: three lines A:right -> B:left with offsets, with animated sparks
@@ -285,7 +285,7 @@ def main():
 
     # cortex -> cortex
     for _ in range(5):
-        connections.append(Connection((b, "left", -0.5+random.random()), (b, "right", -0.5+random.random()), color=ARROW_COLOR, width=3, sparks=3, spark_speed=0.7 + random.random()/4))
+        connections.append(Connection((b, "left", -0.5+random.random()), (b, "top", -0.5+random.random()), color=ARROW_COLOR, width=3, sparks=3, spark_speed=0.7 + random.random()/4))
 
     connections_per_area = 1
     # eye1, eye2, eye3, eye4, ear_eye, ear3, ear2, ear1, skin1, skin2, motor_area, cognitive1, cognitive2, cognitive3, cognitive4
@@ -294,7 +294,7 @@ def main():
     for area, color in enumerate([EYE_COLOR1, EYE_COLOR2, EYE_COLOR3, EYE_COLOR4, EYE_EAR_COLOR, EAR_COLOR3, EAR_COLOR2, EAR_COLOR1, SKIN_COLOR2, SKIN_COLOR1, MOTOR_AREA_COLOR1, COGNITIVE_COLOR1, COGNITIVE_COLOR2, COGNITIVE_COLOR3, COGNITIVE_COLOR4]):
         area = area / 15 + 0.05
         for t in range(connections_per_area):
-            connections.append(Connection((a, "right", 0.5 - (area + t/30)), (b, "right", -0.5+area + t/30), color=color, width=3, sparks=3, spark_speed=0.7 + random.random()/4))
+            connections.append(Connection((a, "bottom", 0.5 - (area + t/30)), (b, "top", 0.5 - (area + t/30)), color=color, width=3, sparks=3, spark_speed=0.7 + random.random()/4))
 
     # eye2, eye3, eye4, ear_eye, ear3, ear2, skin2, motor_area, cognitive1, cognitive2, cognitive3, cognitive4
     # cortex output: total 12 areas
