@@ -68,11 +68,13 @@ def draw_grid(surface, gap=24):
 
 
 class Block:
-    def __init__(self, x, y, w, h, label):
+    def __init__(self, x, y, w, h, label, alpha=255):
         self.rect = pygame.Rect(x, y, w, h)
         self.label = label
         self.dragging = False
         self.drag_offset = (0, 0)
+        # Per-block transparency (0 fully transparent, 255 fully opaque)
+        self.alpha = max(0, min(255, int(alpha)))
 
     def contains(self, pos):
         return self.rect.collidepoint(pos)
@@ -90,8 +92,16 @@ class Block:
         self.dragging = False
 
     def draw(self, surface, font):
-        pygame.draw.rect(surface, BLOCK_FILL, self.rect, border_radius=14)
-        pygame.draw.rect(surface, BLOCK_BORDER, self.rect, width=2, border_radius=14)
+        # Draw translucent rounded rectangle on its own surface
+        block_surf = pygame.Surface((self.rect.w, self.rect.h), pygame.SRCALPHA)
+        rr = block_surf.get_rect()
+        fill_rgba   = (*BLOCK_FILL,  self.alpha)
+        border_rgba = (*BLOCK_BORDER, self.alpha)
+        pygame.draw.rect(block_surf, fill_rgba, rr, border_radius=14)
+        pygame.draw.rect(block_surf, border_rgba, rr, width=2, border_radius=14)
+        surface.blit(block_surf, self.rect.topleft)
+
+        # Text stays fully opaque (rendered on main surface)
         text = font.render(self.label, True, TEXT_COLOR)
         tw, th = text.get_size()
         surface.blit(text, (self.rect.centerx - tw // 2, self.rect.centery - th // 2))
@@ -260,8 +270,10 @@ def main():
     skin = Block(10, 200, 100, 100, "Skin")
     eye = Block(10, 350, 100, 100, "Eye")
     movement = Block(10, 500, 100, 100, "Movement")
+    note_sorted = Block(570, 400, 230, 100, "Topographically sorted", 100)
+    note_brain = Block(10, 790, 230, 100, "Simplified human brain", 100)
     blocks = [a, b, ear, eye, skin, movement]
-
+    notes = [note_sorted, note_brain]
     # Connections: three lines A:right -> B:left with offsets, with animated sparks
     connections = []
     # sensory input
@@ -323,7 +335,7 @@ def main():
             if event.type == pygame.QUIT:
                 running = False
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                for block in blocks:
+                for block in blocks + notes:
                     if block.contains(event.pos):
                         dragging_target = block; block.start_drag(event.pos)
                         break
@@ -344,6 +356,9 @@ def main():
         for conn in connections:
             curve = conn.draw(screen)
             conn.draw_sparks(screen, curve, elapsed)
+
+        for block in notes:
+            block.draw(screen, font)
 
         hud = font.render(
             "Drag blocks. Offsets: -0.5..0.5 along edges from center. Sparks per-connection.",
