@@ -1,7 +1,8 @@
 import math
 import pygame
 import random
-
+import argparse
+import os
 
 # https://materialui.co/colors
 # ---------- Config ----------
@@ -44,6 +45,18 @@ ARROW_HEAD_LEN = 14
 ARROW_HEAD_ANGLE = math.radians(25)
 CURVE_SAMPLES = 48  # segments when drawing the bezier
 
+
+def parse_args():
+    p = argparse.ArgumentParser(description="Mermaid-like blocks with curved arrows (offsets + sparks)")
+    p.add_argument("-o", "--save-prefix", default=None,
+                   help="If set, save frames as PREFIX000001.png, PREFIX000002.png, ...")
+    p.add_argument("--frame-skip", type=int, default=1,
+                   help="Save every N-th frame (default: 1 = every frame)")
+    p.add_argument("--start-index", type=int, default=1,
+                   help="Starting index for saved frames (default: 1)")
+    p.add_argument("--max-frames", type=int, default=0,
+                   help="Stop after saving this many frames (0 = unlimited)")
+    return p.parse_args()
 
 def draw_grid(surface, gap=24):
     w, h = surface.get_size()
@@ -232,6 +245,7 @@ class Connection:
 
 
 def main():
+    args = parse_args()
     pygame.init()
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
     pygame.display.set_caption("Mermaid-like Blocks with Curved Arrows (offsets + sparks)")
@@ -277,6 +291,18 @@ def main():
     dragging_target = None
     running = True
     elapsed = 0.0  # seconds since start
+    # --- Export init ---
+    save_prefix = args.save_prefix
+    frame_skip = max(1, int(args.frame_skip))
+    start_idx = max(0, int(args.start_index))
+    max_frames = max(0, int(args.max_frames))
+    frames_saved = 0
+    frame_index = start_idx
+    frame_counter = 0
+    if save_prefix:
+        outdir = os.path.dirname(save_prefix)
+        if outdir:
+            os.makedirs(outdir, exist_ok=True)
 
     while running:
         dt_ms = clock.tick(FPS)
@@ -314,6 +340,16 @@ def main():
             True, (180, 190, 200),
         )
         #screen.blit(hud, (16, 16))
+
+        # --- Save frame if requested ---
+        frame_counter += 1
+        if save_prefix and (frame_counter % frame_skip == 0):
+            filename = f"{save_prefix}{frame_index:06d}.png"
+            pygame.image.save(screen, filename)
+            frame_index += 1
+            frames_saved += 1
+            if max_frames and frames_saved >= max_frames:
+                running = False
 
         pygame.display.flip()
 
