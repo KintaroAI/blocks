@@ -6,7 +6,7 @@ import os
 
 # https://materialui.co/colors
 # ---------- Config ----------
-WIDTH, HEIGHT = 900, 900
+WIDTH, HEIGHT = 900, 800
 BG = (22, 26, 30)
 #BG = (255, 255, 255)
 GRID = (36, 40, 45)
@@ -57,6 +57,12 @@ def parse_args():
                    help="Starting index for saved frames (default: 1)")
     p.add_argument("--max-frames", type=int, default=0,
                    help="Stop after saving this many frames (0 = unlimited)")
+    p.add_argument("--random-spark-starts", action="store_true",
+                   help="Enable emitter mode: sparks start at random; probability scales with 'sparks' and 'spark_speed'")
+    p.add_argument("--emit-mult", type=float, default=1.0,
+                   help="Global multiplier for emission rate in emitter mode (default 1.0)")
+    p.add_argument("--max-live-sparks", type=int, default=0,
+                   help="Cap concurrent live sparks per connection in emitter mode (0 = no cap)")
     return p.parse_args()
 
 def draw_grid(surface, gap=24):
@@ -204,6 +210,9 @@ class Connection:
         sparks=0,
         spark_speed=0.6,
         spark_color=None,
+        use_emitter=False,
+        emit_mult=1.0,
+        max_live_sparks=0,
     ):
         self.start_block, self.start_edge, self.start_t = start
         self.end_block, self.end_edge, self.end_t = end
@@ -212,8 +221,17 @@ class Connection:
         self.sparks = int(max(0, sparks))
         self.spark_speed = float(max(0.0, spark_speed))
         self.spark_color = spark_color if spark_color else brighten(color, 30)
-        # Phase offsets for each spark so they are spaced evenly
-        self._spark_phase = [i / max(1, self.sparks) for i in range(self.sparks)]
+        # Spark modes
+        self.use_emitter = bool(use_emitter)
+        self.emit_mult = float(emit_mult)
+        self.max_live_sparks = int(max_live_sparks)
+        if self.use_emitter:
+            # Emitter mode: spawn sparks randomly over time
+            self._live = []          # list of t positions in [0,1)
+            self._emit_accum = 0.0   # accumulator for Poisson-like spawning
+        else:
+            # Classic mode: fixed sparks, evenly spaced around the loop
+            self._spark_phase = [i / max(1, self.sparks) for i in range(self.sparks)]
 
     def endpoints(self):
         p0 = self.start_block.anchor_point_with_offset(self.start_edge, self.start_t)
@@ -239,7 +257,7 @@ class Connection:
 
         return (p0, c1, c2, p3)  # return curve for sparks
 
-    def draw_sparks(self, surface, curve_points, elapsed_time):
+    def draw_sparks(self, surface, curve_points, elapsed_time, dt):
         if self.sparks <= 0 or self.spark_speed <= 0:
             return
         p0, c1, c2, p3 = curve_points
@@ -248,11 +266,41 @@ class Connection:
         # We'll render a circle whose DIAMETER = width + 1
         radius = max(1, (self.width + 5) // 2)
 
-        for phase in self._spark_phase:
-            # t progresses with time; wrap around [0,1)
-            t = (phase + elapsed_time * self.spark_speed) % 1.0
-            pt = cubic_bezier(p0, c1, c2, p3, t)
-            pygame.draw.circle(surface, self.spark_color, (int(pt.x), int(pt.y)), radius)
+        if not self.use_emitter:
+            # Classic loop: evenly spaced phases
+            for phase in self._spark_phase:
+                t = (phase + elapsed_time * self.spark_speed) % 1.0
+                pt = cubic_bezier(p0, c1, c2, p3, t)
+                pygame.draw.circle(surface, self.spark_color, (int(pt.x), int(pt.y)), radius)
+            return
+
+        # Emitter mode: spawn randomly; probability scales with sparks & speed
+        # Expected spawns/sec ~= sparks * spark_speed * emit_mult
+        rate = max(0.0, self.sparks * self.spark_speed * self.emit_mult)
+        self._emit_accum += rate * dt
+
+        # Spawn floor(self._emit_accum) sparks; probabilistically one more
+        to_spawn = int(self._emit_accum)
+        self._emit_accum -= to_spawn
+        if random.random() < self._emit_accum:
+            to_spawn += 1
+            self._emit_accum = 0.0
+
+        # Respect cap on concurrent live sparks, if any
+        for _ in range(to_spawn):
+            if self.max_live_sparks and len(self._live) >= self.max_live_sparks:
+                break
+            self._live.append(0.0)  # start at the beginning (t = 0.0)
+
+        # Advance/draw live sparks; remove those that reach t>=1.0
+        new_live = []
+        for t in self._live:
+            t += self.spark_speed * dt
+            if t < 1.0:
+                pt = cubic_bezier(p0, c1, c2, p3, t)
+                pygame.draw.circle(surface, self.spark_color, (int(pt.x), int(pt.y)), radius)
+                new_live.append(t)
+        self._live = new_live
 
 
 def main():
@@ -263,6 +311,13 @@ def main():
     clock = pygame.time.Clock()
     font = pygame.font.SysFont("arial", 18)
 
+    # Shared spark behavior (global) for all connections
+    conn_kwargs = dict(
+        use_emitter=args.random_spark_starts,
+        emit_mult=args.emit_mult,
+        max_live_sparks=args.max_live_sparks,
+    )
+
     # Blocks
     a = Block(460, 50, 400, 200, "Thalamus")
     b = Block(460, 460, 400, 200, "Cortex")
@@ -271,21 +326,21 @@ def main():
     eye = Block(10, 350, 100, 100, "Eye")
     movement = Block(10, 500, 100, 100, "Movement")
     note_sorted = Block(560, 300, 200, 100, "Topographically sorted", 100)
-    note_brain = Block(10, 790, 200, 100, "Simplified human brain", 100)
+    note_brain = Block(10, 690, 200, 100, "Simplified human brain", 100)
     blocks = [a, b, ear, eye, skin, movement]
     notes = [note_sorted, note_brain]
     # Connections: three lines A:right -> B:left with offsets, with animated sparks
     connections = []
     # sensory input
     for t in range(-4, 5, 4):
-        connections.append(Connection((ear, "right", t/10), (a, "left", -0.5+random.random()), color=EAR_COLOR1, width=3, sparks=3, spark_speed=0.7 + random.random()/4))
-        connections.append(Connection((eye, "right", t/10), (a, "left", -0.5+random.random()), color=EYE_COLOR1, width=3, sparks=3, spark_speed=0.7 + random.random()/4))
-        connections.append(Connection((skin, "right", t/10), (a, "left", -0.5+random.random()), color=SKIN_COLOR1, width=3, sparks=3, spark_speed=0.7 + random.random()/4))
-        connections.append(Connection((movement, "right", t/10), (a, "left", -0.5+random.random()), color=MOTOR_AREA_COLOR1, width=3, sparks=3, spark_speed=0.7 + random.random()/4))
+        connections.append(Connection((ear, "right", t/10), (a, "left", -0.5+random.random()), color=EAR_COLOR1, width=3, sparks=3, spark_speed=0.7 + random.random()/4, **conn_kwargs))
+        connections.append(Connection((eye, "right", t/10), (a, "left", -0.5+random.random()), color=EYE_COLOR1, width=3, sparks=3, spark_speed=0.7 + random.random()/4, **conn_kwargs))
+        connections.append(Connection((skin, "right", t/10), (a, "left", -0.5+random.random()), color=SKIN_COLOR1, width=3, sparks=3, spark_speed=0.7 + random.random()/4, **conn_kwargs))
+        connections.append(Connection((movement, "right", t/10), (a, "left", -0.5+random.random()), color=MOTOR_AREA_COLOR1, width=3, sparks=3, spark_speed=0.7 + random.random()/4, **conn_kwargs))
 
     # cortex -> cortex
-    for _ in range(5):
-        connections.append(Connection((b, "left", -0.5+random.random()), (b, "top", -0.5+random.random()), color=ARROW_COLOR, width=3, sparks=3, spark_speed=0.7 + random.random()/4))
+    for _ in range(10):
+        connections.append(Connection((b, "left", -0.5+random.random()), (b, "top", -0.5+random.random()), color=ARROW_COLOR, width=3, sparks=3, spark_speed=0.7 + random.random()/4, **conn_kwargs))
 
     connections_per_area = 1
     # eye1, eye2, eye3, eye4, ear_eye, ear3, ear2, ear1, skin1, skin2, motor_area, cognitive1, cognitive2, cognitive3, cognitive4
@@ -294,7 +349,7 @@ def main():
     for area, color in enumerate([EYE_COLOR1, EYE_COLOR2, EYE_COLOR3, EYE_COLOR4, EYE_EAR_COLOR, EAR_COLOR3, EAR_COLOR2, EAR_COLOR1, SKIN_COLOR2, SKIN_COLOR1, MOTOR_AREA_COLOR1, COGNITIVE_COLOR1, COGNITIVE_COLOR2, COGNITIVE_COLOR3, COGNITIVE_COLOR4]):
         area = area / 15 + 0.05
         for t in range(connections_per_area):
-            connections.append(Connection((a, "bottom", 0.5 - (area + t/30)), (b, "top", 0.5 - (area + t/30)), color=color, width=3, sparks=3, spark_speed=0.7 + random.random()/4))
+            connections.append(Connection((a, "bottom", 0.5 - (area + t/30)), (b, "top", 0.5 - (area + t/30)), color=color, width=3, sparks=3, spark_speed=0.7 + random.random()/4, **conn_kwargs))
 
     # eye2, eye3, eye4, ear_eye, ear3, ear2, skin2, motor_area, cognitive1, cognitive2, cognitive3, cognitive4
     # cortex output: total 12 areas
@@ -302,10 +357,10 @@ def main():
     for area, color in enumerate([EYE_COLOR2, EYE_COLOR3, EYE_COLOR4, EYE_EAR_COLOR, EAR_COLOR3, EAR_COLOR2, SKIN_COLOR2, MOTOR_AREA_COLOR1, COGNITIVE_COLOR1, COGNITIVE_COLOR2, COGNITIVE_COLOR3, COGNITIVE_COLOR4]):
         area = area / 13
         for t in range(connections_per_area):
-            connections.append(Connection((b, "left", - 0.5 + (area + t/26)), (a, "left", -0.5+random.random()), color=color, width=3, sparks=3, spark_speed=0.7 + random.random()/4))
+            connections.append(Connection((b, "left", - 0.5 + (area + t/26)), (a, "left", -0.5+random.random()), color=color, width=3, sparks=3, spark_speed=0.7 + random.random()/4, **conn_kwargs))
             if color == MOTOR_AREA_COLOR1:
-                connections.append(Connection((b, "left", - 0.5 + (area + t/26)), (movement, "bottom", -0.33), color=MOTOR_AREA_COLOR2, width=3, sparks=3, spark_speed=0.7 + random.random()/4))
-                connections.append(Connection((b, "left", - 0.5 + (area + t/26)), (movement, "bottom", 0.33), color=MOTOR_AREA_COLOR2, width=3, sparks=3, spark_speed=0.7 + random.random()/4))
+                connections.append(Connection((b, "left", - 0.5 + (area + t/26)), (movement, "bottom", -0.33), color=MOTOR_AREA_COLOR2, width=3, sparks=3, spark_speed=0.7 + random.random()/4, **conn_kwargs))
+                connections.append(Connection((b, "left", - 0.5 + (area + t/26)), (movement, "bottom", 0.33), color=MOTOR_AREA_COLOR2, width=3, sparks=3, spark_speed=0.7 + random.random()/4, **conn_kwargs))
 
 
 
@@ -355,7 +410,7 @@ def main():
         # Draw all connections & their sparks
         for conn in connections:
             curve = conn.draw(screen)
-            conn.draw_sparks(screen, curve, elapsed)
+            conn.draw_sparks(screen, curve, elapsed, dt)
 
         for block in notes:
             block.draw(screen, font)
@@ -364,7 +419,11 @@ def main():
             "Drag blocks. Offsets: -0.5..0.5 along edges from center. Sparks per-connection.",
             True, (180, 190, 200),
         )
-        #screen.blit(hud, (16, 16))
+        kintaro = font.render(
+            "KintaroAI.com",
+            True, (180, 190, 200),
+        )
+        screen.blit(kintaro, (760, 760))
 
         # --- Save frame if requested ---
         frame_counter += 1
