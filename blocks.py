@@ -1,17 +1,43 @@
 import math
 import pygame
+import random
 
+
+# https://materialui.co/colors
 # ---------- Config ----------
-WIDTH, HEIGHT = 900, 560
+WIDTH, HEIGHT = 900, 900
 BG = (22, 26, 30)
+#BG = (255, 255, 255)
 GRID = (36, 40, 45)
 BLOCK_FILL = (43, 48, 54)
 BLOCK_BORDER = (90, 100, 110)
 ARROW_COLOR = (230, 235, 240)
+EAR_COLOR1 = (27, 94, 32)
+EYE_COLOR1 = (1, 87, 155)
+SKIN_COLOR1 = (245, 127, 23)
+
+EAR_COLOR2 = (56, 142, 60)
+EYE_COLOR2 = (2, 136, 209)
+SKIN_COLOR2 = (251, 192, 45)
+
+EAR_COLOR3 = (77, 182, 172)
+EYE_COLOR3 = (3, 169, 244)
+
+EYE_EAR_COLOR = (79, 195, 247)
+
+EYE_COLOR4 = (100, 181, 246)
+
+MOTOR_AREA_COLOR = (171, 71, 188)
+
+COGNITIVE_COLOR4 = (136, 14, 79)
+COGNITIVE_COLOR3 = (194, 24, 91)
+COGNITIVE_COLOR2 = (233, 30, 99)
+COGNITIVE_COLOR1 = (240, 98, 146)
+
 TEXT_COLOR = (235, 240, 245)
 FPS = 120
 
-CONTROL_PUSH_MAX = 220
+CONTROL_PUSH_MAX = 320
 CONTROL_PUSH_RATIO = 0.42  # fraction of start->end distance (clamped by max)
 
 ARROW_HEAD_LEN = 14
@@ -185,7 +211,7 @@ class Connection:
 
         # Arrowhead points toward the end block
         tangent = cubic_bezier_tangent(p0, c1, c2, p3, 1.0)
-        draw_arrowhead(surface, p3, -tangent, self.color)
+        draw_arrowhead(surface, p3, tangent, self.color)
 
         return (p0, c1, c2, p3)  # return curve for sparks
 
@@ -213,17 +239,40 @@ def main():
     font = pygame.font.SysFont("arial", 18)
 
     # Blocks
-    a = Block(160, 180, 100, 200, "Block A")
-    b = Block(560, 280, 200, 100, "Block B")
+    a = Block(460, 50, 100, 400, "Thalamus")
+    b = Block(460, 460, 100, 400, "Cortex")
+    ear = Block(10, 50, 100, 100, "Ear")
+    skin = Block(10, 200, 100, 100, "Skin")
+    eye = Block(10, 350, 100, 100, "Eye")
+    blocks = [a, b, ear, eye, skin]
 
     # Connections: three lines A:right -> B:left with offsets, with animated sparks
-    connections = [
-        Connection((a, "right", -0.35), (b, "left", -0.35), color=ARROW_COLOR, width=3, sparks=3, spark_speed=0.7),
-        Connection((a, "right",  0.00), (b, "left",  0.00),  color=ARROW_COLOR, width=4, sparks=5, spark_speed=0.8),
-        Connection((a, "right",  0.35), (b, "left",  0.35), color=ARROW_COLOR, width=3, sparks=3, spark_speed=0.6),
-        # Try another edge pair:
-        Connection((a, "bottom", -0.4), (b, "top", 0.4), color=(100,230,255), width=3, sparks=4, spark_speed=0.9),
-    ]
+    connections = []
+    for t in range(-5, 5, 1):
+        connections.append(Connection((ear, "right", t/10), (a, "left", -0.5+random.random()), color=EAR_COLOR1, width=3, sparks=3, spark_speed=0.7 + random.random()/4))
+        connections.append(Connection((eye, "right", t/10), (a, "left", -0.5+random.random()), color=EYE_COLOR1, width=3, sparks=3, spark_speed=0.7 + random.random()/4))
+        connections.append(Connection((skin, "right", t/10), (a, "left", -0.5+random.random()), color=SKIN_COLOR1, width=3, sparks=3, spark_speed=0.7 + random.random()/4))
+
+    for _ in range(5):
+        connections.append(Connection((b, "bottom", -0.5+random.random()), (b, "right", -0.5+random.random()), color=ARROW_COLOR, width=3, sparks=3, spark_speed=0.7 + random.random()/4))
+
+    connections_per_area = 2
+    # eye1, eye2, eye3, eye4, ear_eye, ear3, ear2, ear1, skin1, skin2, motor_area, cognitive1, cognitive2, cognitive3, cognitive4
+    # thalamus output: total 15 areas (as an example)
+    for area, color in enumerate([EYE_COLOR1, EYE_COLOR2, EYE_COLOR3, EYE_COLOR4, EYE_EAR_COLOR, EAR_COLOR3, EAR_COLOR2, EAR_COLOR1, SKIN_COLOR2, SKIN_COLOR1, MOTOR_AREA_COLOR, COGNITIVE_COLOR1, COGNITIVE_COLOR2, COGNITIVE_COLOR3, COGNITIVE_COLOR4]):
+        area = area / 15
+        for t in range(connections_per_area):
+            connections.append(Connection((a, "right", 0.5 - (area + t/30)), (b, "right", -0.5+area + t/30), color=color, width=3, sparks=3, spark_speed=0.7 + random.random()/4))
+
+    # eye2, eye3, eye4, ear_eye, ear3, ear2, skin2, motor_area, cognitive1, cognitive2, cognitive3, cognitive4
+    # cortex output: total 12 areas
+    for area, color in enumerate([EYE_COLOR2, EYE_COLOR3, EYE_COLOR4, EYE_EAR_COLOR, EAR_COLOR3, EAR_COLOR2, SKIN_COLOR2, MOTOR_AREA_COLOR, COGNITIVE_COLOR1, COGNITIVE_COLOR2, COGNITIVE_COLOR3, COGNITIVE_COLOR4]):
+        area = area / 13
+        for t in range(connections_per_area):
+            connections.append(Connection((b, "left", - 0.5 + (area + t/26)), (a, "left", -0.5+random.random()), color=color, width=3, sparks=3, spark_speed=0.7 + random.random()/4))
+
+
+
 
     dragging_target = None
     running = True
@@ -238,10 +287,10 @@ def main():
             if event.type == pygame.QUIT:
                 running = False
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                if a.contains(event.pos):
-                    dragging_target = a; a.start_drag(event.pos)
-                elif b.contains(event.pos):
-                    dragging_target = b; b.start_drag(event.pos)
+                for block in blocks:
+                    if block.contains(event.pos):
+                        dragging_target = block; block.start_drag(event.pos)
+                        break
             elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
                 if dragging_target:
                     dragging_target.stop_drag()
@@ -252,8 +301,8 @@ def main():
         # ---- Draw ----
         screen.fill(BG)
         draw_grid(screen)
-        a.draw(screen, font)
-        b.draw(screen, font)
+        for block in blocks:
+            block.draw(screen, font)
 
         # Draw all connections & their sparks
         for conn in connections:
@@ -264,7 +313,7 @@ def main():
             "Drag blocks. Offsets: -0.5..0.5 along edges from center. Sparks per-connection.",
             True, (180, 190, 200),
         )
-        screen.blit(hud, (16, 16))
+        #screen.blit(hud, (16, 16))
 
         pygame.display.flip()
 
