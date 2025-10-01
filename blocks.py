@@ -28,7 +28,8 @@ EYE_EAR_COLOR = (79, 195, 247)
 
 EYE_COLOR4 = (100, 181, 246)
 
-MOTOR_AREA_COLOR = (171, 71, 188)
+MOTOR_AREA_COLOR1 = (171, 71, 188)
+MOTOR_AREA_COLOR2 = (186, 104, 200)
 
 COGNITIVE_COLOR4 = (136, 14, 79)
 COGNITIVE_COLOR3 = (194, 24, 91)
@@ -258,32 +259,41 @@ def main():
     ear = Block(10, 50, 100, 100, "Ear")
     skin = Block(10, 200, 100, 100, "Skin")
     eye = Block(10, 350, 100, 100, "Eye")
-    blocks = [a, b, ear, eye, skin]
+    movement = Block(10, 500, 100, 100, "Movement")
+    blocks = [a, b, ear, eye, skin, movement]
 
     # Connections: three lines A:right -> B:left with offsets, with animated sparks
     connections = []
-    for t in range(-5, 5, 1):
+    # sensory input
+    for t in range(-4, 5, 4):
         connections.append(Connection((ear, "right", t/10), (a, "left", -0.5+random.random()), color=EAR_COLOR1, width=3, sparks=3, spark_speed=0.7 + random.random()/4))
         connections.append(Connection((eye, "right", t/10), (a, "left", -0.5+random.random()), color=EYE_COLOR1, width=3, sparks=3, spark_speed=0.7 + random.random()/4))
         connections.append(Connection((skin, "right", t/10), (a, "left", -0.5+random.random()), color=SKIN_COLOR1, width=3, sparks=3, spark_speed=0.7 + random.random()/4))
+        connections.append(Connection((movement, "right", t/10), (a, "left", -0.5+random.random()), color=MOTOR_AREA_COLOR1, width=3, sparks=3, spark_speed=0.7 + random.random()/4))
 
+    # cortex -> cortex
     for _ in range(5):
-        connections.append(Connection((b, "bottom", -0.5+random.random()), (b, "right", -0.5+random.random()), color=ARROW_COLOR, width=3, sparks=3, spark_speed=0.7 + random.random()/4))
+        connections.append(Connection((b, "left", -0.5+random.random()), (b, "right", -0.5+random.random()), color=ARROW_COLOR, width=3, sparks=3, spark_speed=0.7 + random.random()/4))
 
-    connections_per_area = 2
+    connections_per_area = 1
     # eye1, eye2, eye3, eye4, ear_eye, ear3, ear2, ear1, skin1, skin2, motor_area, cognitive1, cognitive2, cognitive3, cognitive4
     # thalamus output: total 15 areas (as an example)
-    for area, color in enumerate([EYE_COLOR1, EYE_COLOR2, EYE_COLOR3, EYE_COLOR4, EYE_EAR_COLOR, EAR_COLOR3, EAR_COLOR2, EAR_COLOR1, SKIN_COLOR2, SKIN_COLOR1, MOTOR_AREA_COLOR, COGNITIVE_COLOR1, COGNITIVE_COLOR2, COGNITIVE_COLOR3, COGNITIVE_COLOR4]):
-        area = area / 15
+    # thalamus to cortex
+    for area, color in enumerate([EYE_COLOR1, EYE_COLOR2, EYE_COLOR3, EYE_COLOR4, EYE_EAR_COLOR, EAR_COLOR3, EAR_COLOR2, EAR_COLOR1, SKIN_COLOR2, SKIN_COLOR1, MOTOR_AREA_COLOR1, COGNITIVE_COLOR1, COGNITIVE_COLOR2, COGNITIVE_COLOR3, COGNITIVE_COLOR4]):
+        area = area / 15 + 0.05
         for t in range(connections_per_area):
             connections.append(Connection((a, "right", 0.5 - (area + t/30)), (b, "right", -0.5+area + t/30), color=color, width=3, sparks=3, spark_speed=0.7 + random.random()/4))
 
     # eye2, eye3, eye4, ear_eye, ear3, ear2, skin2, motor_area, cognitive1, cognitive2, cognitive3, cognitive4
     # cortex output: total 12 areas
-    for area, color in enumerate([EYE_COLOR2, EYE_COLOR3, EYE_COLOR4, EYE_EAR_COLOR, EAR_COLOR3, EAR_COLOR2, SKIN_COLOR2, MOTOR_AREA_COLOR, COGNITIVE_COLOR1, COGNITIVE_COLOR2, COGNITIVE_COLOR3, COGNITIVE_COLOR4]):
+    # cortex to thalamus
+    for area, color in enumerate([EYE_COLOR2, EYE_COLOR3, EYE_COLOR4, EYE_EAR_COLOR, EAR_COLOR3, EAR_COLOR2, SKIN_COLOR2, MOTOR_AREA_COLOR1, COGNITIVE_COLOR1, COGNITIVE_COLOR2, COGNITIVE_COLOR3, COGNITIVE_COLOR4]):
         area = area / 13
         for t in range(connections_per_area):
             connections.append(Connection((b, "left", - 0.5 + (area + t/26)), (a, "left", -0.5+random.random()), color=color, width=3, sparks=3, spark_speed=0.7 + random.random()/4))
+            if color == MOTOR_AREA_COLOR1:
+                for _ in range(2):
+                    connections.append(Connection((b, "left", - 0.5 + (area + t/26)), (movement, "bottom", -0.5+random.random()), color=MOTOR_AREA_COLOR2, width=3, sparks=3, spark_speed=0.7 + random.random()/4))
 
 
 
