@@ -133,5 +133,6 @@ dmypy.json
 *.gif
 *.jpg
 *.jpeg
+*.mp4
 output/
 frames/
