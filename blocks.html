@@ -99,7 +99,10 @@ function clamp(v, lo, hi){ return Math.max(lo, Math.min(hi, v)); }
 function brighten([r,g,b], d=30){
   return `rgb(${Math.min(255,r+d)},${Math.min(255,g+d)},${Math.min(255,b+d)})`;
 }
-
+function parseRGB(str){
+  const m = /rgba?\((\d+),\s*(\d+),\s*(\d+)/i.exec(str);
+  return m ? [parseInt(m[1],10), parseInt(m[2],10), parseInt(m[3],10)] : [230,235,240];
+}
 /** Cubic Bezier helpers */
 function bezierPoint(p0,p1,p2,p3,t){
   const u=1-t;
@@ -295,7 +298,12 @@ class Connection {
 
     const radius = Math.max(1, Math.floor((this.width + 5)/2));
     const colorStroke = getComputedStyle(this.path).stroke;
-    const colorFill = colorStroke; // slight brighten could be added
+    // cache a brighter spark color derived from the stroke
+    if (!this._sparkColor) {
+      const base = parseRGB(colorStroke);
+      this._sparkColor = brighten(base, 30); // tweak delta if you want
+    }
+    const colorFill = this._sparkColor;
 
     if (!this.emitter){
       for (const phase of this.phases){
