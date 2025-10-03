@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Neuro Flow (SVG)</title>
+<style>
+  :root {
+    --bg: #161a1e;
+    --grid: #24282d;
+    --block-fill: #2b3036;
+    --block-border: #5a646e;
+    --text: #ebf0f5;
+  }
+  html, body { height: 100%; margin: 0; background: var(--bg); color: var(--text); font: 16px/1.3 system-ui, Segoe UI, Roboto, Arial; }
+  #app { height: 100%; display: grid; grid-template-rows: auto 1fr; }
+  header {
+    padding: 8px 12px; color: #b4bcc6; display:flex; gap:16px; align-items:center;
+  }
+  header .pill { padding: 4px 10px; border: 1px solid #3a4149; border-radius: 999px; }
+  svg { width: 100%; height: calc(100vh - 42px); display: block; }
+  .block rect {
+    fill: var(--block-fill);
+    stroke: var(--block-border);
+    stroke-width: 2;
+    rx: 14; ry: 14;
+    filter: drop-shadow(0 1px 0 rgba(0,0,0,.3));
+    cursor: grab;
+  }
+  .block.dragging rect { cursor: grabbing; }
+  .block text { fill: var(--text); font-size: 16px; font-weight: 500; }
+  .hud { fill: #b4bcc6; font-size: 13px; }
+  /* Subtle animate-in */
+  .fade-in { animation: fade .4s ease-out both; }
+  @keyframes fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="pill">Drag nodes to rearrange</div>
+    <div class="pill">Sparks indicate flow</div>
+    <div class="pill">Arrowheads align with path</div>
+  </header>
+
+  <svg id="stage" viewBox="0 0 1000 720" preserveAspectRatio="xMidYMid slice">
+    <!-- Grid -->
+    <defs>
+      <pattern id="grid" width="24" height="24" patternUnits="userSpaceOnUse">
+        <path d="M24 0H0V24" fill="none" stroke="var(--grid)" stroke-width="1"/>
+      </pattern>
+      <!-- Arrowhead marker -->
+      <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="10" markerHeight="10" orient="auto-start-reverse">
+        <polygon points="0,0 10,5 0,10" fill="#e6ebf0"/>
+      </marker>
+      <!-- Colors (match your palette) -->
+      <style>
+        .c-motor   { stroke: rgb(171,71,188); }
+        .c-motor2  { stroke: rgb(186,104,200); }
+        .c-sens1   { stroke: rgb(77,182,172); }
+        .c-sens2   { stroke: rgb(3,169,244); }
+        .c-cereb   { stroke: rgb(240,98,146); }
+        .c-basal   { stroke: rgb(245,127,23); }
+        .c-thal    { stroke: rgb(1,87,155); }
+        .c-olf     { stroke: rgb(56,142,60); }
+      </style>
+    </defs>
+    <rect x="0" y="0" width="100%" height="100%" fill="url(#grid)"/>
+
+    <!-- Layers -->
+    <g id="connections" class="fade-in"></g>
+    <g id="sparks"></g>
+    <g id="blocks" class="fade-in"></g>
+
+    <text class="hud" x="12" y="20">KintaroAI.com — SVG Neuro Flow (drag blocks; curves & sparks update live)</text>
+  </svg>
+</div>
+
+<script>
+/** ---------------- Utilities ---------------- **/
+const SVG_NS = "http://www.w3.org/2000/svg";
+const stage = document.getElementById("stage");
+const gBlocks = document.getElementById("blocks");
+const gConns  = document.getElementById("connections");
+const gSparks = document.getElementById("sparks");
+
+function create(tag, attrs={}, parent=null) {
+  const el = document.createElementNS(SVG_NS, tag);
+  for (const [k,v] of Object.entries(attrs)) {
+    if (k === "textContent") el.textContent = v;
+    else el.setAttribute(k, v);
+  }
+  if (parent) parent.appendChild(el);
+  return el;
+}
+
+function clamp(v, lo, hi){ return Math.max(lo, Math.min(hi, v)); }
+
+function brighten([r,g,b], d=30){
+  return `rgb(${Math.min(255,r+d)},${Math.min(255,g+d)},${Math.min(255,b+d)})`;
+}
+
+/** Cubic Bezier helpers */
+function bezierPoint(p0,p1,p2,p3,t){
+  const u=1-t;
+  const x = (u*u*u)*p0.x + 3*(u*u)*t*p1.x + 3*u*(t*t)*p2.x + (t*t*t)*p3.x;
+  const y = (u*u*u)*p0.y + 3*(u*u)*t*p1.y + 3*u*(t*t)*p2.y + (t*t*t)*p3.y;
+  return {x,y};
+}
+function bezierTangent(p0,p1,p2,p3,t){
+  const u=1-t;
+  const x = 3*((p1.x-p0.x)*(u*u) + 2*(p2.x-p1.x)*u*t + (p3.x-p2.x)*(t*t));
+  const y = 3*((p1.y-p0.y)*(u*u) + 2*(p2.y-p1.y)*u*t + (p3.y-p2.y)*(t*t));
+  return {x,y};
+}
+
+/** ---------------- Model ---------------- **/
+const CONFIG = {
+  CONTROL_PUSH_MAX: 320,
+  CONTROL_PUSH_RATIO: 0.42,
+  width: 1000, height: 720,
+  arrowWidth: 3
+};
+
+const COLORS = {
+  motor:   [171,71,188],
+  motor2:  [186,104,200],
+  sens1:   [77,182,172],
+  sens2:   [3,169,244],
+  cereb:   [240,98,146],
+  basal:   [245,127,23],
+  thal:    [1,87,155],
+  olf:     [56,142,60],
+  arrow:   [230,235,240],
+};
+
+class Block {
+  constructor(id, x,y,w,h, label){
+    this.id=id; this.x=x; this.y=y; this.w=w; this.h=h; this.label=label;
+    this.g = create("g", {class:"block", "data-id": id}, gBlocks);
+    this.rect = create("rect", {x, y, width:w, height:h}, this.g);
+    this.text = create("text", {x:x+w/2, y:y+h/2, "text-anchor":"middle", "dominant-baseline":"middle"}, this.g);
+    this._renderText();
+    this._bindDrag();
+  }
+  _renderText(){
+    this.text.replaceChildren();
+    const parts = this.label.replace(/<br\/?>/g, "\n").split("\n");
+    const lineH = 18;
+    const totalH = lineH * parts.length;
+
+    const cx = this.x + this.w/2;
+    const y0 = (this.y + this.h/2) - (totalH/2) + 12;
+
+    this.text.setAttribute("text-anchor", "middle");
+    this.text.setAttribute("x", cx);
+    this.text.setAttribute("y", y0);
+
+    parts.forEach((line, i)=>{
+        const tspan = document.createElementNS(SVG_NS, "tspan");
+        if (i > 0) tspan.setAttribute("dy", lineH);   // move down a line
+        tspan.setAttribute("x", cx);                  // ⬅ reset start x for each line
+        tspan.textContent = line;
+        this.text.appendChild(tspan);
+    });
+  }
+  anchor(edge, t){
+    t = clamp(t, -0.5, 0.5);
+    if (edge==="top"||edge==="bottom") {
+      const x = this.x + this.w/2 + this.w * t;
+      const y = (edge==="top") ? this.y : (this.y + this.h);
+      return {x,y};
+    } else if (edge==="left"||edge==="right") {
+      const x = (edge==="left") ? this.x : (this.x + this.w);
+      const y = this.y + this.h/2 + this.h * t;
+      return {x,y};
+    }
+    throw new Error("bad edge");
+  }
+  edgeDir(edge){
+    if (edge==="top") return {x:0,y:-1};
+    if (edge==="right") return {x:1,y:0};
+    if (edge==="bottom") return {x:0,y:1};
+    if (edge==="left") return {x:-1,y:0};
+    throw new Error("bad edge");
+  }
+  edgeDirEnd(edge){
+    if (edge==="top") return {x:0,y:1};
+    if (edge==="right") return {x:-1,y:0};
+    if (edge==="bottom") return {x:0,y:-1};
+    if (edge==="left") return {x:1,y:0};
+    throw new Error("bad edge");
+  }
+  setPos(x,y){
+    this.x=x; this.y=y;
+    this.rect.setAttribute("x", x);
+    this.rect.setAttribute("y", y);
+
+    const parts = this.label.replace(/<br\/?>/g, "\n").split("\n");
+    const lineH = 18;
+    const totalH = lineH * parts.length;
+    const cx = this.x + this.w/2;
+    const baselineAdjust = (this.y + this.h/2) - (totalH/2) + 12;
+
+    this.text.setAttribute("x", cx);
+    this.text.setAttribute("y", baselineAdjust);
+
+    // keep all lines horizontally centered while dragging
+    for (const tspan of this.text.querySelectorAll("tspan")) {
+        tspan.setAttribute("x", cx);
+    }
+  }
+  _bindDrag(){
+    let start = null;
+    const onPointerDown = (e)=>{
+      start = {x: e.clientX, y: e.clientY, bx: this.x, by: this.y};
+      this.g.classList.add("dragging");
+      this.g.setPointerCapture(e.pointerId);
+    };
+    const onPointerMove = (e)=>{
+      if (!start) return;
+      const dx = e.clientX - start.x;
+      const dy = e.clientY - start.y;
+      this.setPos(start.bx + dx, start.by + dy);
+      updateAllConnections();
+    };
+    const onPointerUp = (e)=>{
+      start = null;
+      this.g.classList.remove("dragging");
+      this.g.releasePointerCapture(e.pointerId);
+    };
+    this.g.addEventListener("pointerdown", onPointerDown);
+    this.g.addEventListener("pointermove", onPointerMove);
+    this.g.addEventListener("pointerup",   onPointerUp);
+    this.g.addEventListener("pointercancel", onPointerUp);
+  }
+}
+
+class Connection {
+  constructor({start, end, colorClass, width=3, sparks=0, sparkSpeed=0.8, emitter=false, maxLive=0}){
+    this.start = start; // {block, edge, t}
+    this.end   = end;
+    this.width = width;
+    this.sparks = Math.max(0, sparks);
+    this.sparkSpeed = Math.max(0, sparkSpeed);
+    this.emitter = !!emitter;
+    this.maxLive = maxLive|0;
+    this.live = [];     // emitter t's
+    this.emitAcc = 0;
+    this.colorClass = colorClass;
+    this.path = create("path", {
+      fill: "none",
+      "stroke-width": width,
+      class: colorClass,
+      "marker-end": "url(#arrow)"
+    }, gConns);
+    this.sparkGroup = create("g", {}, gSparks);
+    if (!this.emitter) {
+      // Classic loop: evenly spaced phases
+      this.phases = Array.from({length: this.sparks}, (_,i)=> i/Math.max(1,this.sparks));
+    }
+  }
+  endpoints(){
+    const sb = blocksById[this.start.block];
+    const eb = blocksById[this.end.block];
+    const p0 = sb.anchor(this.start.edge, this.start.t);
+    const d0 = sb.edgeDir(this.start.edge);
+    const p3 = eb.anchor(this.end.edge, this.end.t);
+    const d3 = eb.edgeDirEnd(this.end.edge);
+
+    return {p0,d0,p3,d3};
+  }
+  controls(p0,d0,p3,d3){
+    const span = Math.hypot(p3.x - p0.x, p3.y - p0.y);
+    const push = Math.min(CONFIG.CONTROL_PUSH_MAX, span * CONFIG.CONTROL_PUSH_RATIO);
+    const c1 = {x: p0.x + d0.x*push, y: p0.y + d0.y*push};
+    const c2 = {x: p3.x - d3.x*push, y: p3.y - d3.y*push}; // into the end block
+    return {c1,c2};
+  }
+  updatePath(){
+    const {p0,d0,p3,d3} = this.endpoints();
+    const {c1,c2} = this.controls(p0,d0,p3,d3);
+    const d = `M ${p0.x} ${p0.y} C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${p3.x} ${p3.y}`;
+    this.path.setAttribute("d", d);
+    this.cached = {p0,c1,c2,p3};
+  }
+  drawSparks(dt, time){
+    if (this.sparks<=0 || this.sparkSpeed<=0) return;
+    // prep
+    if (!this.cached) this.updatePath();
+    const {p0,c1,c2,p3} = this.cached;
+
+    // clean
+    this.sparkGroup.replaceChildren();
+
+    const radius = Math.max(1, Math.floor((this.width + 5)/2));
+    const colorStroke = getComputedStyle(this.path).stroke;
+    const colorFill = colorStroke; // slight brighten could be added
+
+    if (!this.emitter){
+      for (const phase of this.phases){
+        const t = (phase + time * this.sparkSpeed) % 1;
+        const pt = bezierPoint(p0,c1,c2,p3,t);
+        create("circle", {cx: pt.x, cy: pt.y, r: radius, fill: colorFill, stroke: "none"}, this.sparkGroup);
+      }
+      return;
+    }
+
+    // emitter mode
+    const rate = Math.max(0, this.sparks * this.sparkSpeed); // ~spawns/sec
+    this.emitAcc += rate * dt;
+    let toSpawn = Math.floor(this.emitAcc);
+    this.emitAcc -= toSpawn;
+    if (Math.random() < this.emitAcc) { toSpawn++; this.emitAcc = 0; }
+
+    while (toSpawn--) {
+      if (this.maxLive && this.live.length >= this.maxLive) break;
+      this.live.push(0.0);
+    }
+
+    const next = [];
+    for (let t of this.live){
+      t += this.sparkSpeed * dt;
+      if (t < 1) {
+        const pt = bezierPoint(p0,c1,c2,p3,t);
+        create("circle", {cx: pt.x, cy: pt.y, r: radius, fill: colorFill, stroke: "none"}, this.sparkGroup);
+        next.push(t);
+      }
+    }
+    this.live = next;
+  }
+}
+
+/** ---------------- Scene Setup ---------------- **/
+const blocks = [
+  // x, y, w, h
+  new Block("A", 390, 30, 220, 80, "Motor Cortex"),
+  new Block("B", 390, 130, 220, 80, "Corticospinal Tract"),
+  new Block("C", 360, 230, 280, 80, "Spinal Cord<br/>Lower Motor Neurons"),
+  new Block("D", 390, 330, 220, 80, "Peripheral Nerves"),
+  new Block("E", 390, 430, 220, 80, "Muscles"),
+
+  new Block("F", 340, 540, 320, 80, "Movement & Sensory Feedback"),
+  new Block("G",  70, 540, 260, 80, "Spinal Cord Feedback"),
+  new Block("H", 720, 280, 220,110, "Thalamus"),
+
+  new Block("I",  70, 130, 200, 80, "Pons"),
+  new Block("J",  70, 230, 200, 80, "Cerebellum"),
+
+  new Block("K", 720,  70, 220, 80, "Basal Ganglia"),
+  new Block("L", 720, 430, 220, 80, "Olfactory Input"),
+];
+const blocksById = Object.fromEntries(blocks.map(b=>[b.id,b]));
+
+const connections = [];
+
+// Cortex loop A→B→C→D→E
+for (const [s,e] of [["A","B"],["B","C"],["C","D"],["D","E"]]) {
+  connections.push(new Connection({
+    start:{block:s, edge:"bottom", t:0.0},
+    end:{block:e, edge:"top", t:0.0},
+    colorClass:"c-motor", width:3, sparks:3, sparkSpeed:0.8
+  }));
+}
+// Sensory feedback E→F; then F→G and F→H
+connections.push(new Connection({start:{block:"E",edge:"bottom",t:0}, end:{block:"F",edge:"top",t:0}, colorClass:"c-sens1", width:3, sparks:3, sparkSpeed:0.8}));
+connections.push(new Connection({start:{block:"F",edge:"left",t:0},  end:{block:"G",edge:"right",t:0}, colorClass:"c-sens2", width:3, sparks:2, sparkSpeed:0.7}));
+connections.push(new Connection({start:{block:"F",edge:"right",t:0}, end:{block:"H",edge:"bottom",t:0}, colorClass:"c-sens2", width:3, sparks:2, sparkSpeed:0.7}));
+
+// Cerebellum loop A→I→J→H
+connections.push(new Connection({start:{block:"A",edge:"left", t:-0.2}, end:{block:"I",edge:"right",t:-0.2}, colorClass:"c-cereb", width:3, sparks:3, sparkSpeed:0.8}));
+connections.push(new Connection({start:{block:"I",edge:"bottom",t:0},  end:{block:"J",edge:"top",  t:0},    colorClass:"c-cereb", width:3, sparks:3, sparkSpeed:0.8}));
+connections.push(new Connection({start:{block:"J",edge:"right", t:0},   end:{block:"H",edge:"left", t:-0.1}, colorClass:"c-cereb", width:3, sparks:3, sparkSpeed:0.8}));
+
+// Basal ganglia K→H
+connections.push(new Connection({start:{block:"K",edge:"bottom",t:0}, end:{block:"H",edge:"top",t:0}, colorClass:"c-basal", width:3, sparks:3, sparkSpeed:0.8}));
+
+// Thalamus hub H→A
+connections.push(new Connection({start:{block:"H",edge:"right",t:0}, end:{block:"A",edge:"right",t:0}, colorClass:"c-thal", width:3, sparks:4, sparkSpeed:0.9}));
+
+// Olfactory L→A
+connections.push(new Connection({start:{block:"L",edge:"left",t:0}, end:{block:"A",edge:"bottom",t:0.3}, colorClass:"c-olf", width:3, sparks:3, sparkSpeed:0.8}));
+
+function updateAllConnections() {
+  for (const c of connections) c.updatePath();
+}
+
+updateAllConnections();
+
+/** ---------------- Animation Loop ---------------- **/
+let last = performance.now();
+function tick(now){
+  const dt = (now - last)/1000;
+  last = now;
+  const elapsed = now/1000;
+  for (const c of connections) {
+    c.drawSparks(dt, elapsed);
+  }
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+
+// Optional: resize viewBox to window size (keeps 1000x720 coordinates)
+addEventListener("resize", ()=> {
+  // nothing needed; viewBox handles it, but hook kept for extensions
+});
+
+</script>
+</body>
+</html>
