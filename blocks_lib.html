@@ -378,10 +378,10 @@
 
     // --- Sensory input: Ear/Eye/Skin/Movement -> Thalamus (left) with offsets & randomized end t ---
     for (const t of [-0.4, 0.0, 0.4]) {
-      add({ start:{block:"Ear", edge:"right", t},  end:{block:"A", edge:"left",  t:-0.5 + rnd()*0.5}, color: EAR_COLOR1, width:3, sparks:3, sparkSpeed: 0.7 + rnd()/4 });
-      add({ start:{block:"Eye", edge:"right", t},  end:{block:"A", edge:"left",  t:-0.5 + rnd()*0.5}, color: EYE_COLOR1, width:3, sparks:3, sparkSpeed: 0.7 + rnd()/4 });
-      add({ start:{block:"Skin",edge:"right", t},  end:{block:"A", edge:"left",  t:-0.5 + rnd()*0.5}, color: SKIN_COLOR1, width:3, sparks:3, sparkSpeed: 0.7 + rnd()/4 });
-      add({ start:{block:"Move",edge:"right", t},  end:{block:"A", edge:"left",  t:-0.5 + rnd()*0.5}, color: MOTOR_AREA_COLOR1, width:3, sparks:3, sparkSpeed: 0.7 + rnd()/4 });
+      add({ start:{block:"Ear", edge:"right", t},  end:{block:"A", edge:"left",  t:-0.5 + rnd()}, color: EAR_COLOR1, width:3, sparks:3, sparkSpeed: 0.7 + rnd()/4 });
+      add({ start:{block:"Eye", edge:"right", t},  end:{block:"A", edge:"left",  t:-0.5 + rnd()}, color: EYE_COLOR1, width:3, sparks:3, sparkSpeed: 0.7 + rnd()/4 });
+      add({ start:{block:"Skin",edge:"right", t},  end:{block:"A", edge:"left",  t:-0.5 + rnd()}, color: SKIN_COLOR1, width:3, sparks:3, sparkSpeed: 0.7 + rnd()/4 });
+      add({ start:{block:"Move",edge:"right", t},  end:{block:"A", edge:"left",  t:-0.5 + rnd()}, color: MOTOR_AREA_COLOR1, width:3, sparks:3, sparkSpeed: 0.7 + rnd()/4 });
     }
 
     // --- Cortex -> Cortex: a few lateral internal edges with random offsets ---
@@ -423,7 +423,7 @@
       // to thalamus (random end on left side)
       add({
         start:{block:"B", edge:"left",  t: lane},
-        end:  {block:"A", edge:"left",  t: -0.5 + rnd()*0.5},
+        end:  {block:"A", edge:"left",  t: -0.5 + rnd()},
         color: col, width:3, sparks:3, sparkSpeed: 0.7 + rnd()/4
       });
       // special motor split: to Movement bottom at two lanes
