@@ -163,7 +163,7 @@
         create("path",{d:"M24 0H0V24",fill:"none",stroke:"var(--grid)","stroke-width":"1"},p);
         // Size the grid rect to the viewBox so it never over/underflows when scaling
         create("rect",{x:0,y:0,width:this.opts.width, height:this.opts.height, fill:`url(#${this.ids.grid})`},this.svg); }
-      const marker=create("marker",{id:this.ids.arrow,viewBox:"0 0 10 10",refX:"9",refY:"5",markerWidth:"10",markerHeight:"10",orient:"auto-start-reverse"},defs);
+      const marker=create("marker",{id:this.ids.arrow,viewBox:"0 0 10 10",refX:"9",refY:"5",markerWidth:"5",markerHeight:"5",orient:"auto-start-reverse"},defs);
       create("polygon",{points:"0,0 10,5 0,10",fill:"#e6ebf0"},marker);
       this.gConns=create("g",{class:"connections"},this.svg);
       this.gSparks=create("g",{class:"sparks"},this.svg);
