@@ -14,7 +14,7 @@ Two flavors:
 
 * Rounded blocks with multi-line labels.
 * Smooth cubic Bézier connections with arrowheads.
-* Spark “impulses” that travel along connections to show direction.
+* Spark "impulses" that travel along connections to show direction.
 * Live dragging of nodes; curves and sparks update instantly.
 * Arrowheads terminate **outside** the target block border for a clean look.
 
@@ -24,12 +24,18 @@ Two flavors:
 
 ```
 .
-├── README.md          # this file
-├── output.gif         # preview (example animation)
-├── python/
-│   └── neuro_flow.py  # Pygame version (CLI options; can export frames)
-└── web/
-    └── index.html     # Browser version (drop-in `run_blocks` library + demo)
+├── README.md              # this file
+├── requirements.txt       # Python dependencies
+├── setup.py              # Python package setup
+├── Makefile              # common tasks
+├── output.gif            # preview (example animation)
+├── blocks.py             # Main brain visualization (thalamus/cortex)
+├── cerebellum.py         # Motor/sensory pathway visualization
+├── blocks_lib.py         # Shared Python library
+├── blocks.html           # Browser version (single diagram)
+├── blocks_lib.html       # Browser version (library + multi-instance)
+├── make_gif.sh           # Script to create GIF from frames
+└── make_mp4.sh           # Script to create MP4 from frames
 ```
 
 ---
@@ -54,30 +60,48 @@ Two flavors:
 ### 1) Install
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate            # Windows: .venv\Scripts\activate
-pip install pygame
+# Option 1: Using pip directly
+pip install -r requirements.txt
+
+# Option 2: Using make
+make install
+
+# Option 3: Install as package (development)
+pip install -e .
 ```
 
 ### 2) Run
 
 ```bash
-python python/neuro_flow.py
+# Main brain visualization (thalamus/cortex)
+python blocks.py
+
+# Motor/sensory pathway visualization
+python cerebellum.py
+
+# Or using make
+make run-blocks
+make run-cerebellum
 ```
 
 ### 3) Export frames (optional)
 
 ```bash
-python python/neuro_flow.py \
-  --save-prefix frames/frame_ \
-  --frame-skip 2 \
-  --max-frames 600
+# Generate frames
+python blocks.py --save-prefix output/frame_ --frame-skip 2 --max-frames 300
+
+# Or using make
+make frames
 ```
 
-Then stitch frames into a GIF (example, using ImageMagick):
+### 4) Create animations
 
 ```bash
-magick -delay 3 -loop 0 frames/frame_*.png output.gif
+# Create GIF
+make gif
+
+# Create MP4
+make mp4
 ```
 
 ### Notable CLI flags
@@ -92,9 +116,13 @@ magick -delay 3 -loop 0 frames/frame_*.png output.gif
 
 ## Quick Start — Web (HTML + JS + SVG)
 
-Open `web/index.html` in your browser. It includes a tiny “library” and example usage.
+Open `blocks.html` or `blocks_lib.html` in your browser.
 
-To embed in your own page:
+### Single diagram (`blocks.html`)
+A complete neuro flow visualization with all connections pre-configured.
+
+### Multi-instance library (`blocks_lib.html`)
+Drop-in library for creating multiple diagrams on one page:
 
 ```html
 <div id="diagram-1" style="height:620px"></div>
@@ -175,6 +203,18 @@ Each edge supports a `t` offset in `[-0.5, 0.5]`:
   outOffset?: number       // nudge arrow tip outside target block (px), default 12
 }
 ```
+
+---
+
+## Python Architecture
+
+The Python code is organized into a shared library:
+
+* **`blocks_lib.py`** — Shared classes and functions (Block, Connection, drawing utilities)
+* **`blocks.py`** — Main brain visualization (thalamus/cortex connections)
+* **`cerebellum.py`** — Motor/sensory pathway visualization
+
+Both visualization scripts import from `blocks_lib.py` to avoid code duplication.
 
 ---
 
