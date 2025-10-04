@@ -165,9 +165,10 @@
         create("rect",{x:0,y:0,width:this.opts.width, height:this.opts.height, fill:`url(#${this.ids.grid})`},this.svg); }
       const marker=create("marker",{id:this.ids.arrow,viewBox:"0 0 10 10",refX:"9",refY:"5",markerWidth:"5",markerHeight:"5",orient:"auto-start-reverse"},defs);
       create("polygon",{points:"0,0 10,5 0,10",fill:"context-stroke"},marker);
+      // Paint order: blocks (bottom) → connections (above) → sparks (top)
+      this.gBlocks=create("g",{class:"blocks"},this.svg);
       this.gConns=create("g",{class:"connections"},this.svg);
       this.gSparks=create("g",{class:"sparks"},this.svg);
-      this.gBlocks=create("g",{class:"blocks"},this.svg);
       this.blocks={}; this.connections=[]; this._last=performance.now(); this._running=false;
       this.colors={ motor:"rgb(171,71,188)", motor2:"rgb(186,104,200)", sens1:"rgb(77,182,172)", sens2:"rgb(3,169,244)", cereb:"rgb(240,98,146)", basal:"rgb(245,127,23)", thal:"rgb(1,87,155)", olf:"rgb(56,142,60)", arrow:"rgb(230,235,240)" };
       this.const={ CONTROL_PUSH_MAX:320, CONTROL_PUSH_RATIO:0.42 };
