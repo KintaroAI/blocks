@@ -43,7 +43,7 @@
     <div class="pill">Arrowheads align with path</div>
   </header>
 
-  <svg id="stage" viewBox="0 0 1000 720" preserveAspectRatio="xMidYMid slice">
+  <svg id="stage" viewBox="0 0 1000 720" preserveAspectRatio="xMidYMid meet">
     <!-- Grid -->
     <defs>
       <pattern id="grid" width="24" height="24" patternUnits="userSpaceOnUse">
@@ -65,7 +65,8 @@
         .c-olf     { stroke: rgb(56,142,60); }
       </style>
     </defs>
-    <rect x="0" y="0" width="100%" height="100%" fill="url(#grid)"/>
+    <!-- Size the grid rect to the viewBox so it never over/underflows when scaling -->
+    <rect x="0" y="0" width="1000" height="720" fill="url(#grid)"/>
 
     <!-- Layers -->
     <g id="connections" class="fade-in"></g>
