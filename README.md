@@ -6,7 +6,7 @@ Two flavors:
 * **Python / Pygame** app for desktop.
 * **HTML + SVG + JS** drop-in for the browser (multiple diagrams per page, zero deps).
 
-![Demo](output.gif)
+![Demo](output_example.gif)
 
 ---
 
@@ -28,7 +28,7 @@ Two flavors:
 ├── requirements.txt       # Python dependencies
 ├── setup.py              # Python package setup
 ├── Makefile              # common tasks
-├── output.gif            # preview (example animation)
+├── output_example.gif    # preview (example animation)
 ├── blocks.py             # Main brain visualization (thalamus/cortex)
 ├── cerebellum.py         # Motor/sensory pathway visualization
 ├── blocks_lib.py         # Shared Python library
