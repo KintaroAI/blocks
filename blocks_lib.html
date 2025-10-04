@@ -15,7 +15,8 @@
   #app1 { height: 620px; }
   #app2 { height: 360px; }
   #app3 { height: 700px; }
-
+  /* optional: styling tweak for notes */
+  .block.note rect { opacity: .35; }
   /* Node styling (applies inside each instance) */
   .block rect { fill: var(--block-fill); stroke: var(--block-border); stroke-width: 2; rx: 14; ry: 14; filter: drop-shadow(0 1px 0 rgba(0,0,0,.3)); cursor: grab; }
   .block.dragging rect { cursor: grabbing; }
@@ -60,9 +61,10 @@
     y:(u*u*u)*p0.y + 3*(u*u)*t*p1.y + 3*u*(t*t)*p2.y + (t*t*t)*p3.y
   }};
   class Block {
-    constructor(diagram, id, x,y,w,h, label){
+    constructor(diagram, id, x,y,w,h, label, opts = {}){
       this.d=diagram; this.id=id; this.x=x; this.y=y; this.w=w; this.h=h; this.label=label;
-      this.g = create("g", {class:"block","data-id":id}, this.d.gBlocks);
+      const parent = opts.note ? this.d.gNotes : this.d.gBlocks;
+      this.g = create("g", {class:`block${opts.note?' note':''}`,"data-id":id}, parent);
       this.rect = create("rect", {x,y,width:w,height:h,rx:14,ry:14}, this.g);
       this.text = create("text", {"text-anchor":"middle","dominant-baseline":"middle"}, this.g);
       this._renderText(); this._bindDrag();
@@ -165,10 +167,12 @@
         create("rect",{x:0,y:0,width:this.opts.width, height:this.opts.height, fill:`url(#${this.ids.grid})`},this.svg); }
       const marker=create("marker",{id:this.ids.arrow,viewBox:"0 0 10 10",refX:"9",refY:"5",markerWidth:"5",markerHeight:"5",orient:"auto-start-reverse"},defs);
       create("polygon",{points:"0,0 10,5 0,10",fill:"context-stroke"},marker);
-      // Paint order: blocks (bottom) → connections (above) → sparks (top)
-      this.gBlocks=create("g",{class:"blocks"},this.svg);
-      this.gConns=create("g",{class:"connections"},this.svg);
-      this.gSparks=create("g",{class:"sparks"},this.svg);
+      // Paint order (bottom → top):
+      // 1) blocks (regular) → 2) connections → 3) sparks → 4) notes (topmost)
+      this.gBlocks=create("g",{class:"blocks"},this.svg);       // bottom
+      this.gConns =create("g",{class:"connections"},this.svg);  // middle
+      this.gSparks=create("g",{class:"sparks"},this.svg);       // above connections
+      this.gNotes =create("g",{class:"notes"},this.svg);        // top
       this.blocks={}; this.connections=[]; this._last=performance.now(); this._running=false;
       this.colors={ motor:"rgb(171,71,188)", motor2:"rgb(186,104,200)", sens1:"rgb(77,182,172)", sens2:"rgb(3,169,244)", cereb:"rgb(240,98,146)", basal:"rgb(245,127,23)", thal:"rgb(1,87,155)", olf:"rgb(56,142,60)", arrow:"rgb(230,235,240)" };
       this.const={ CONTROL_PUSH_MAX:320, CONTROL_PUSH_RATIO:0.42 };
@@ -179,7 +183,7 @@
       if(this.colors[v]) return this.colors[v];
       return v;
     }
-    addBlock(id,x,y,w,h,label){ const b=new Block(this,id,x,y,w,h,label); this.blocks[id]=b; return b; }
+    addBlock(id,x,y,w,h,label,opts){ const b=new Block(this,id,x,y,w,h,label,opts); this.blocks[id]=b; return b; }
     block(id){ return this.blocks[id]; }
     connect(opts){ const c=new Connection(this,opts); this.connections.push(c); c.updatePath(); return c; }
     update(){ for(const c of this.connections) c.updatePath(); }
@@ -365,11 +369,9 @@
     const skin= b.addBlock("Skin",10, 200, 100, 100, "Skin");
     const eye = b.addBlock("Eye", 10, 350, 100, 100, "Eye");
     const move= b.addBlock("Move",10, 500, 100, 100, "Movement");
-    const note1 = b.addBlock("NoteSorted", 560, 300, 200, 100, "Topographically sorted");
-    const note2 = b.addBlock("NoteBrain",  610, 690, 280, 100, "Data flow in the human brain");
-    // soften note blocks visually
-    (note1.rect).setAttribute("opacity","0.35");
-    (note2.rect).setAttribute("opacity","0.35");
+    // notes → render on topmost layer
+    b.addBlock("NoteSorted", 560, 300, 200, 100, "Topographically sorted", { note: true });
+    b.addBlock("NoteBrain",  610, 690, 280, 100, "Data flow in the human brain", { note: true });
 
     // helper for slight randomness like the Python version
     const rnd = () => Math.random();
