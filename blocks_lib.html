@@ -4,32 +4,25 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>run_blocks demo</title>
+<link rel="stylesheet" href="blocks_lib.css">
 <style>
-  :root {
-    --bg: #161a1e; --grid: #24282d; --block-fill: #2b3036; --block-border: #5a646e; --text: #ebf0f5;
-  }
+  /* Example-specific styles */
   html, body { height: 100%; margin: 0; background: var(--bg); color: var(--text); font: 16px/1.35 system-ui, Segoe UI, Roboto, Arial; }
-  .wrap { max-width: 1200px; margin: 0 auto; padding: 16px; display: grid; gap: 16px; }
-  .canvas { background: #111519; border: 1px solid #293039; border-radius: 14px; overflow: hidden; }
   /* give containers explicit heights so the SVG (100%) has room */
   #app1 { height: 620px; }
   #app2 { height: 360px; }
   #app3 { height: 700px; }
-  /* optional: styling tweak for notes */
-  .block.note rect { opacity: .35; }
-  /* Node styling (applies inside each instance) */
-  .block rect { fill: var(--block-fill); stroke: var(--block-border); stroke-width: 2; rx: 14; ry: 14; filter: drop-shadow(0 1px 0 rgba(0,0,0,.3)); cursor: grab; }
-  .block.dragging rect { cursor: grabbing; }
-  .block text { fill: var(--text); font-size: 16px; font-weight: 500; }
-  /* optional stroke classes if you want to use className instead of direct color */
-  .c-motor   { stroke: rgb(171,71,188); }
-  .c-motor2  { stroke: rgb(186,104,200); }
-  .c-sens1   { stroke: rgb(77,182,172); }
-  .c-sens2   { stroke: rgb(3,169,244); }
-  .c-cereb   { stroke: rgb(240,98,146); }
-  .c-basal   { stroke: rgb(245,127,23); }
-  .c-thal    { stroke: rgb(1,87,155); }
-  .c-olf     { stroke: rgb(56,142,60); }
+
+/* Optional stroke classes if you want to use className instead of direct color */
+.c-motor   { stroke: rgb(171,71,188); }
+.c-motor2  { stroke: rgb(186,104,200); }
+.c-sens1   { stroke: rgb(77,182,172); }
+.c-sens2   { stroke: rgb(3,169,244); }
+.c-cereb   { stroke: rgb(240,98,146); }
+.c-basal   { stroke: rgb(245,127,23); }
+.c-thal    { stroke: rgb(1,87,155); }
+.c-olf     { stroke: rgb(56,142,60); }
+
 </style>
 </head>
 <body>
