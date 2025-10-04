@@ -294,14 +294,38 @@
     b.connect({start:{block:"L",edge:"left",t:0}, end:{block:"A",edge:"bottom",t:0.3}, width:3, sparks:3, sparkSpeed:0.8, color:c.olf});
   }, { width: 1000, height: 620 });
 
-  // Diagram 2 — tiny toy graph to show multi-instance works
-  run_blocks("#app2", (b) => {
-    b.addBlock("X", 60, 40, 160, 60, "Input");
-    b.addBlock("Y", 300, 40, 160, 60, "Processor");
-    b.addBlock("Z", 540, 40, 160, 60, "Output");
-    b.connect({start:{block:"X",edge:"right",t:0}, end:{block:"Y",edge:"left",t:0}, width:3, sparks:2, sparkSpeed:0.9, color:b.colors.motor});
-    b.connect({start:{block:"Y",edge:"right",t:0}, end:{block:"Z",edge:"left",t:0}, width:3, sparks:2, sparkSpeed:0.9, color:b.colors.sens2});
-  }, { width: 760, height: 360 });
+  // Diagram 2 — tiny toy graph loaded via JSON option
+  const app2Spec = {
+    "blocks": [
+      { "id": "X", "x": 60,  "y": 40, "w": 160, "h": 60, "label": "Input" },
+      { "id": "Y", "x": 300, "y": 40, "w": 160, "h": 60, "label": "Processor" },
+      { "id": "Z", "x": 540, "y": 40, "w": 160, "h": 60, "label": "Output" }
+    ],
+    "connections": [
+      {
+        "start": { "block": "X", "edge": "right", "t": 0 },
+        "end":   { "block": "Y", "edge": "left",  "t": 0 },
+        "width": 3,
+        "sparks": 2,
+        "spark_speed": 0.9,
+        "color": "motor"
+      },
+      {
+        "start": { "block": "Y", "edge": "right", "t": 0 },
+        "end":   { "block": "Z", "edge": "left",  "t": 0 },
+        "width": 3,
+        "sparks": 2,
+        "spark_speed": 0.9,
+        "color": "sens2"
+      }
+    ]
+  };
+
+  run_blocks("#app2", null, {
+    width: 760,
+    height: 360,
+    json: app2Spec
+  });
 </script>
 </body>
 </html>
