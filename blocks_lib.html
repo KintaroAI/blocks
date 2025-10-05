@@ -74,6 +74,9 @@
     b.connect({start:{block:"H",edge:"right",t:0}, end:{block:"A",edge:"right",t:0}, width:3, sparks:4, sparkSpeed:0.9, color:c.thal});
     // olfactory -> motor
     b.connect({start:{block:"L",edge:"left",t:0}, end:{block:"A",edge:"bottom",t:0.3}, width:3, sparks:3, sparkSpeed:0.8, color:c.olf});
+    
+    // Test emitter mode with random spark spawning
+    b.connect({start:{block:"A",edge:"right",t:0.3}, end:{block:"H",edge:"left",t:0.3}, width:4, sparks:8, sparkSpeed:0.8, color:c.thal, emitter:true, emitMult:0.1, maxLive:0});
   }, { width: 1000, height: 620 });
 
   // Diagram 2 — tiny toy graph loaded via JSON option
@@ -99,6 +102,17 @@
         "sparks": 2,
         "spark_speed": 0.9,
         "color": "sens2"
+      },
+      {
+        "start": { "block": "Z", "edge": "bottom", "t": 0 },
+        "end":   { "block": "X", "edge": "bottom", "t": 0 },
+        "width": 4,
+        "sparks": 6,
+        "spark_speed": 1.0,
+        "color": "cereb",
+        "emitter": true,
+        "emit_mult": 2.0,
+        "max_live": 10
       }
     ]
   };

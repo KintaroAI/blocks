@@ -61,9 +61,9 @@
     }
   }
   class Connection {
-    constructor(diagram, {start,end,color,className,width=3,sparks=0,sparkSpeed=0.8,emitter=false,maxLive=0,outOffset=4}){
+    constructor(diagram, {start,end,color,className,width=3,sparks=0,sparkSpeed=0.8,emitter=false,maxLive=0,emitMult=1.0,outOffset=4}){
       this.d=diagram; this.start=start; this.end=end; this.width=width; this.color=color; this.className=className;
-      this.sparks=Math.max(0,sparks); this.sparkSpeed=Math.max(0,sparkSpeed); this.emitter=!!emitter; this.maxLive=maxLive|0; this.outOffset=outOffset;
+      this.sparks=Math.max(0,sparks); this.sparkSpeed=Math.max(0,sparkSpeed); this.emitter=!!emitter; this.maxLive=maxLive|0; this.emitMult=Math.max(0,emitMult); this.outOffset=outOffset;
       this.live=[]; this.emitAcc=0;
       this.path = create("path", {fill:"none","stroke-width":width,"marker-end":`url(#${this.d.ids.arrow})`}, this.d.gConns);
       // allow either CSS class or color (color may be a palette key)
@@ -104,9 +104,13 @@
           create("circle",{cx:pt.x,cy:pt.y,r,fill:this._sparkColor},this.sparkGroup); }
         return;
       }
-      const rate=Math.max(0,this.sparks*this.sparkSpeed); this.emitAcc += rate*dt;
+      // Emitter mode: spawn randomly; probability scales with sparks & speed
+      // Expected spawns/sec ~= sparks * spark_speed * emitMult
+      const rate=Math.max(0,this.sparks*this.sparkSpeed*this.emitMult); this.emitAcc += rate*dt;
       let toSpawn=Math.floor(this.emitAcc); this.emitAcc-=toSpawn; if(Math.random()<this.emitAcc){toSpawn++; this.emitAcc=0;}
+      // Respect cap on concurrent live sparks, if any
       while(toSpawn--){ if(this.maxLive && this.live.length>=this.maxLive) break; this.live.push(0.0); }
+      // Advance/draw live sparks; remove those that reach t>=1.0
       const next=[]; for(let t of this.live){ t+=this.sparkSpeed*dt; if(t<1){ const pt=bPoint(p0,c1,c2,p3,t);
         create("circle",{cx:pt.x,cy:pt.y,r,fill:this._sparkColor},this.sparkGroup); next.push(t);} } this.live=next;
     }
@@ -183,6 +187,7 @@
           sparkSpeed: e.spark_speed ?? e.sparkSpeed ?? 0.8,
           emitter: !!(e.emitter ?? e.random ?? false),
           maxLive: e.max_live ?? e.maxLive ?? 0,
+          emitMult: e.emit_mult ?? e.emitMult ?? 1.0,
           outOffset: e.out_offset ?? e.outOffset ?? 4
         });
       }
