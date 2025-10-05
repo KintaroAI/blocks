@@ -277,15 +277,15 @@
     // ----- Arcs/loops on the top row -----
     // Thalamus -> Cortex (topo loop)
     b.connect({
-      start:{ block:"Thal", edge:"top", t:  0.10 },
-      end:  { block:"Ctx",  edge:"top", t: -0.10 },
-      width:3, sparks:3, sparkSpeed:0.7, color: c.arrow, outOffset: 14
+      start:{ block:"Thal", edge:"top", t:  0.22 },
+      end:  { block:"Ctx",  edge:"top", t: -0.22 },
+      width:3, sparks:3, sparkSpeed:0.7, color: c.arrow
     });
     // Cortex -> Thalamus (return on same loop)
     b.connect({
-      start:{ block:"Ctx",  edge:"top", t:  0.25 },
-      end:  { block:"Thal", edge:"top", t: -0.25 },
-      width:3, sparks:3, sparkSpeed:0.7, color: c.arrow, outOffset: 14
+      start:{ block:"Ctx",  edge:"bottom", t: -0.22 },
+      end:  { block:"Thal", edge:"bottom", t: 0.22 },
+      width:3, sparks:3, sparkSpeed:0.7, color: c.arrow
     });
     // Label leader from note to the loop (thin)
     b.connect({
@@ -296,14 +296,14 @@
 
     // Cortex <-> Monoamine (modulatory RL loop)
     b.connect({
-      start:{ block:"Ctx", edge:"top", t:  0.05 },
-      end:  { block:"MA",  edge:"top", t: -0.05 },
-      width:3, sparks:2, sparkSpeed:0.6, color: c.arrow, outOffset:14
+      start:{ block:"Ctx", edge:"bottom", t:  0.22 },
+      end:  { block:"MA",  edge:"bottom", t: -0.22 },
+      width:3, sparks:2, sparkSpeed:0.6, color: c.arrow
     });
     b.connect({
-      start:{ block:"MA",  edge:"top", t:  0.22 },
-      end:  { block:"Ctx", edge:"top", t: -0.22 },
-      width:3, sparks:2, sparkSpeed:0.6, color: c.arrow, outOffset:14
+      start:{ block:"MA",  edge:"top", t: -0.22 },
+      end:  { block:"Ctx", edge:"top", t: 0.22 },
+      width:3, sparks:2, sparkSpeed:0.6, color: c.arrow
     });
     // Label leader from RL note
     b.connect({
@@ -338,11 +338,11 @@
     b.connect({ start:{block:"Bar2", edge:"bottom", t: 0},   end:{block:"Motor", edge:"top", t: 0}, width:3, sparks:3, sparkSpeed:0.7, color:c.arrow });
 
     // Bottom feedback: Motor -> Sensory (dashed arc)
-    const dashed = { className: "dash", width:3, sparks:0, sparkSpeed:0 };
+    const dashed = {className: "dash", color: c.arrow, width:3, sparks:3, sparkSpeed:0.7 };
     b.connect({
       ...dashed,
-      start:{ block:"Motor", edge:"bottom", t: 0.0 },
-      end:  { block:"Sens",  edge:"bottom", t: 0.0 }
+      start:{ block:"Motor", edge:"left", t: 0.0 },
+      end:  { block:"Sens",  edge:"right", t: 0.0 }
     });
   }, { width: 1000, height: 640 });
 </script>
