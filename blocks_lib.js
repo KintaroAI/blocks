@@ -54,8 +54,8 @@
     _bindDrag(){
       let start=null;
       const down=e=>{ start={x:e.clientX,y:e.clientY,bx:this.x,by:this.y}; this.g.classList.add("dragging"); this.g.setPointerCapture(e.pointerId); };
-      const move=e=>{ if(!start) return; this.setPos(start.bx+(e.clientX-start.x), start.by+(e.clientY-start.y)); this.d.update(); };
-      const up  =e=>{ start=null; this.g.classList.remove("dragging"); this.g.releasePointerCapture(e.pointerId); };
+      const move=e=>{ if(!start) return; this.setPos(start.bx+(e.clientX-start.x), start.by+(e.clientY-start.y)); this.d.update(); if(this.d.opts.debug) this.d.showDebugInfo(this.x,this.y,this.id); };
+      const up  =e=>{ start=null; this.g.classList.remove("dragging"); this.g.releasePointerCapture(e.pointerId); if(this.d.opts.debug) this.d.hideDebugInfo(); };
       this.g.addEventListener("pointerdown",down); this.g.addEventListener("pointermove",move);
       this.g.addEventListener("pointerup",up); this.g.addEventListener("pointercancel",up);
     }
@@ -117,7 +117,7 @@
   }
   class Diagram {
     constructor(container, opts={}){
-      this.opts=Object.assign({width:1000,height:720,grid:true},opts);
+      this.opts=Object.assign({width:1000,height:720,grid:true,debug:false},opts);
       this.ids={root:uid("diagram"),grid:uid("grid"),arrow:uid("arrow")};
       this.svg = create("svg",{id:this.ids.root,viewBox:`0 0 ${this.opts.width} ${this.opts.height}`,preserveAspectRatio:"xMidYMid meet",width:"100%",height:"100%"},container);
       const defs=create("defs",{},this.svg);
@@ -136,6 +136,22 @@
       this.blocks={}; this.connections=[]; this._last=performance.now(); this._running=false;
       this.colors={ motor:"rgb(171,71,188)", motor2:"rgb(186,104,200)", sens1:"rgb(77,182,172)", sens2:"rgb(3,169,244)", cereb:"rgb(240,98,146)", basal:"rgb(245,127,23)", thal:"rgb(1,87,155)", olf:"rgb(56,142,60)", arrow:"rgb(230,235,240)" };
       this.const={ CONTROL_PUSH_MAX:320, CONTROL_PUSH_RATIO:0.42 };
+      
+      // Debug display element
+      this.debugDisplay = null;
+      if(this.opts.debug) {
+        this.debugDisplay = create("text", {
+          x: this.opts.width - 20,
+          y: 20,
+          "text-anchor": "end",
+          "dominant-baseline": "hanging",
+          fill: "#ff6b6b",
+          "font-size": "14px",
+          "font-family": "monospace",
+          "font-weight": "bold",
+          style: "display: none;"
+        }, this.svg);
+      }
     }
     // palette name → CSS color (else return original string)
     resolveColor(v){
@@ -147,6 +163,8 @@
     block(id){ return this.blocks[id]; }
     connect(opts){ const c=new Connection(this,opts); this.connections.push(c); c.updatePath(); return c; }
     update(){ for(const c of this.connections) c.updatePath(); }
+    showDebugInfo(x,y,blockId){ if(this.debugDisplay){ this.debugDisplay.textContent=`${blockId}: (${Math.round(x)}, ${Math.round(y)})`; this.debugDisplay.style.display="block"; } }
+    hideDebugInfo(){ if(this.debugDisplay){ this.debugDisplay.style.display="none"; } }
     _tick=(now)=>{ if(!this._running) return; const dt=(now-this._last)/1000; this._last=now; const elapsed=now/1000;
       for(const c of this.connections) c.drawSparks(dt,elapsed); requestAnimationFrame(this._tick); };
     start(){ if(this._running) return; this._running=true; this._last=performance.now(); requestAnimationFrame(this._tick); }

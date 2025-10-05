@@ -238,9 +238,10 @@
     });
   }, { width: 900, height: 800 });
 
-  // Diagram 4 — matches the provided figure (Thalamus/Cortex/Monoamine + Sensory/Motor)
+  // Diagram 4 — Thalamus/Cortex/Monoamine with debug mode enabled
   run_blocks("#app4", (b) => {
-    const c = b.colors; // palette
+    // Same diagram as before, but with debug enabled
+    const c = b.colors;
 
     // Top row
     b.addBlock("Thal",   120, 140, 220, 70, "Thalamus");
@@ -344,7 +345,7 @@
       start:{ block:"Motor", edge:"left", t: 0.0 },
       end:  { block:"Sens",  edge:"right", t: 0.0 }
     });
-  }, { width: 1000, height: 640 });
+  }, { width: 1000, height: 640, debug: true });
 </script>
 </body>
 </html>
