@@ -50,22 +50,54 @@
       const cx=this.x+this.w/2, y0=(this.y+this.h/2)-(totalH/2)+12;
       this.text.setAttribute("x",cx); this.text.setAttribute("y",y0);
       for(const t of this.text.querySelectorAll("tspan")) t.setAttribute("x",cx);
+      
+      // Update hint positions when block moves
+      if (this._hintsEl && this.setHints) {
+        // Re-render hints with new position
+        const currentHints = this._currentHints || [];
+        this.setHints(currentHints);
+      }
+      
+      // Update value text position when block moves
+      if (this._valueEl) {
+        this._valueEl.setAttribute("x", this.x + this.w/2);
+        this._valueEl.setAttribute("y", this.y + this.h/2);
+      }
     }
     _bindDrag(){
       let start=null;
-      const down=e=>{ start={x:e.clientX,y:e.clientY,bx:this.x,by:this.y}; this.g.classList.add("dragging"); this.g.setPointerCapture(e.pointerId); };
-      const move=e=>{ if(!start) return; this.setPos(start.bx+(e.clientX-start.x), start.by+(e.clientY-start.y)); this.d.update(); if(this.d.opts.debug) this.d.showDebugInfo(this.x,this.y,this.id); };
+      const down=e=>{ 
+        const pt = this._clientToSVG(e.clientX, e.clientY);
+        start={x:pt.x,y:pt.y,bx:this.x,by:this.y}; 
+        this.g.classList.add("dragging"); 
+        this.g.setPointerCapture(e.pointerId); 
+      };
+      const move=e=>{ 
+        if(!start) return; 
+        const pt = this._clientToSVG(e.clientX, e.clientY);
+        this.setPos(start.bx+(pt.x-start.x), start.by+(pt.y-start.y)); 
+        this.d.update(); 
+        if(this.d.opts.debug) this.d.showDebugInfo(this.x,this.y,this.id); 
+      };
       const up  =e=>{ start=null; this.g.classList.remove("dragging"); this.g.releasePointerCapture(e.pointerId); if(this.d.opts.debug) this.d.hideDebugInfo(); };
       this.g.addEventListener("pointerdown",down); this.g.addEventListener("pointermove",move);
       this.g.addEventListener("pointerup",up); this.g.addEventListener("pointercancel",up);
     }
+    _clientToSVG(clientX, clientY) {
+      const pt = this.d.svg.createSVGPoint();
+      pt.x = clientX;
+      pt.y = clientY;
+      return pt.matrixTransform(this.d.svg.getScreenCTM().inverse());
+    }
   }
   class Connection {
-    constructor(diagram, {start,end,color,className,width=3,sparks=0,sparkSpeed=0.8,emitter=false,maxLive=0,emitMult=1.0,outOffset=4}){
+    constructor(diagram, {start,end,color,className,width=3,sparks=0,sparkSpeed=0.8,emitter=false,maxLive=0,emitMult=1.0,outOffset=4,arrow=true}){
       this.d=diagram; this.start=start; this.end=end; this.width=width; this.color=color; this.className=className;
       this.sparks=Math.max(0,sparks); this.sparkSpeed=Math.max(0,sparkSpeed); this.emitter=!!emitter; this.maxLive=maxLive|0; this.emitMult=Math.max(0,emitMult); this.outOffset=outOffset;
       this.live=[]; this.emitAcc=0;
-      this.path = create("path", {fill:"none","stroke-width":width,"marker-end":`url(#${this.d.ids.arrow})`}, this.d.gConns);
+      const pathAttrs = { fill:"none", "stroke-width":width };
+      if (arrow !== false) pathAttrs["marker-end"] = `url(#${this.d.ids.arrow})`;
+      this.path = create("path", pathAttrs, this.d.gConns);
       // allow either CSS class or color (color may be a palette key)
       if(this.className) this.path.setAttribute("class",this.className);
       if(this.color) {
@@ -77,7 +109,9 @@
     }
     endpoints(){
       const sb=this.d.blocks[this.start.block], eb=this.d.blocks[this.end.block];
-      const p0=sb.anchor(this.start.edge,this.start.t), d0=sb.edgeDir(this.start.edge);
+      let p0=sb.anchor(this.start.edge,this.start.t), d0=sb.edgeDir(this.start.edge);
+      const dOutStart=sb.edgeDir(this.start.edge);
+      p0={x:p0.x + dOutStart.x*this.outOffset, y:p0.y + dOutStart.y*this.outOffset}; // push outside start block
       let p3=eb.anchor(this.end.edge,this.end.t);
       const dOut=eb.edgeDir(this.end.edge), dInto=eb.edgeDirInto(this.end.edge);
       p3={x:p3.x + dOut.x*this.outOffset, y:p3.y + dOut.y*this.outOffset}; // push outside target block
@@ -123,8 +157,13 @@
       const defs=create("defs",{},this.svg);
       if(this.opts.grid){ const p=create("pattern",{id:this.ids.grid,width:24,height:24,patternUnits:"userSpaceOnUse"},defs);
         create("path",{d:"M24 0H0V24",fill:"none",stroke:"var(--grid)","stroke-width":"1"},p);
-        // Size the grid rect to the viewBox so it never over/underflows when scaling
-        create("rect",{x:0,y:0,width:this.opts.width, height:this.opts.height, fill:`url(#${this.ids.grid})`},this.svg); }
+        // Create a large grid rect that covers the entire SVG area
+        const gridRect = create("rect",{x:0,y:0,width:"100%", height:"100%", fill:`url(#${this.ids.grid})`},this.svg);
+        // Ensure the grid covers the full SVG area by setting a large viewBox
+        gridRect.setAttribute("width", "2000");
+        gridRect.setAttribute("height", "2000");
+        gridRect.setAttribute("x", "-500");
+        gridRect.setAttribute("y", "-500"); }
       const marker=create("marker",{id:this.ids.arrow,viewBox:"0 0 10 10",refX:"9",refY:"5",markerWidth:"5",markerHeight:"5",orient:"auto-start-reverse"},defs);
       create("polygon",{points:"0,0 10,5 0,10",fill:"context-stroke"},marker);
       // Paint order (bottom → top):
